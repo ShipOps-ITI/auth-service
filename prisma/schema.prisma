@@ -14,18 +14,27 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  ADMIN
+  FLEET_MANAGER
+  CUSTOMER
+  CAPTAIN
+  PORT_OPERATOR
+}
+
 model User {
+  id        Int      @id @default(autoincrement())
 
-  id Int @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
 
-  name String
+  role      Role
 
-  email String @unique
-
-  password String
-
-  isActive Boolean @default(true)
+  isActive  Boolean  @default(true)
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
+  companyId Int?
 }
