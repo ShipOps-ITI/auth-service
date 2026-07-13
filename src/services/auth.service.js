@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
 const register = async (data) => {
-    const { username, email, password, name } = data;
+    const { email, password, name, role } = data;
 
     try {
         // Check if the user already exists
@@ -21,11 +21,10 @@ const register = async (data) => {
         // Create a new user
         const newUser = await prisma.user.create({
             data: {
-                username,
                 email,
                 password: hashedPassword,
                 name,
-                role: "CUSTOMER", // Default role, you can change this as needed
+                role: role || "CUSTOMER", // Default role is CUSTOMER if not provided
             },
         });
         return newUser;
