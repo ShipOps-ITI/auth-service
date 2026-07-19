@@ -35,39 +35,59 @@ const register = async (data) => {
 
 const login = async (data) => {
     const { email, password } = data;
-
     try {
-        // Find the user by email
-        const user = await prisma.user.findUnique({
-            where: { email },
-        });
+        const user = await prisma.user.findUnique({ where: { email } });
+        if (!user) throw new Error("Invalid email or password");
 
-        if (!user) {
-            throw new Error("Invalid email or password");
-        }
-
-        // Compare the provided password with the stored hashed password
         const isPasswordValid = await bcrypt.compare(password, user.password);
-
-        if (!isPasswordValid) {
-            throw new Error("Invalid email or password");
-        }
+        if (!isPasswordValid) throw new Error("Invalid email or password");
 
         const payload = { userId: user.id, role: user.role };
 
-        // Generate a JWT token
-        const token = jwt.sign(payload, process.env.JWT_SECRET, {
-            expiresIn: process.env.JWT_EXPIRES_IN || "1h",
+        // Generate tokens
+        const accessToken = jwt.sign(payload, process.env.JWT_SECRET, {
+            expiresIn: process.env.JWT_EXPIRES_IN || "15m", // SHORT
         });
 
-        return { user, token };
+        const refreshToken = jwt.sign(payload, process.env.REFRESH_TOKEN_SECRET, {
+            expiresIn: "7d", // LONG
+        });
+
+        // Save refresh token to DB
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { refreshToken },
+        });
+
+        return { user, accessToken, refreshToken };
     } catch (error) {
         throw error;
     }
 };
 
+const refreshAccessToken = async (refreshToken) => {
+    try {
+        const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
 
-export default {
-    register,
-    login,
-};  
+        const user = await prisma.user.findUnique({
+            where: { id: decoded.userId },
+        });
+
+        if (!user || user.refreshToken !== refreshToken) {
+            throw new Error("Invalid refresh token");
+        }
+
+        const payload = { userId: user.id, role: user.role };
+
+        // Generate new access token
+        const newAccessToken = jwt.sign(payload, process.env.JWT_SECRET, {
+            expiresIn: "15m",
+        });
+
+        return { accessToken: newAccessToken };
+    } catch (error) {
+        throw error;
+    }
+};
+
+export default { register, login, refreshAccessToken };
