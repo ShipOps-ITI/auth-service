@@ -1,71 +1,104 @@
 import prisma from "../config/prisma.js";
 
-let getUsers = (req, res) => {
-    prisma.user.findMany()
-        .then(users => {
-            res.json(users);
-        })
-        .catch(error => {
-            res.status(500).json({ message: 'Error retrieving users', error });
-        });
+const roles = ["ADMIN", "FLEET_MANAGER", "CUSTOMER", "CAPTAIN", "PORT_OPERATOR"];
+
+const publicUserSelect = {
+  id: true,
+  name: true,
+  email: true,
+  role: true,
+  companyId: true,
+  isActive: true,
+  createdAt: true,
+  updatedAt: true,
 };
 
-let getUserById = (req, res) => {
-    const userId = parseInt(req.params.id);
-    prisma.user.findUnique({
-        where: { id: userId }
-    })
-        .then(user => {
-            if (user) {
-                res.json(user);
-            } else {
-                res.status(404).json({ message: 'User not found' });
-            }
-        })
-        .catch(error => {
-            res.status(500).json({ message: 'Error retrieving user', error });
-        });
+const getUsers = async (req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      select: publicUserSelect,
+      orderBy: { createdAt: "desc" },
+    });
+
+    res.json(users);
+  } catch {
+    res.status(500).json({ message: "Error retrieving users" });
+  }
 };
 
-let createUser = (req, res) => {
-    const newUser = req.body;
-    prisma.user.create({
-        data: newUser
-    })
-        .then(user => {
-            res.status(201).json(user);
-        })
-        .catch(error => {
-            res.status(500).json({ message: 'Error creating user', error });
-        });
+const getUserById = async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: Number(req.params.id) },
+      select: publicUserSelect,
+    });
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(user);
+  } catch {
+    res.status(400).json({ message: "Invalid user ID" });
+  }
 };
 
-let updateUser = (req, res) => {
-    const userId = parseInt(req.params.id);
-    const updatedData = req.body;
-    prisma.user.update({
-        where: { id: userId },
-        data: updatedData
-    })
-        .then(user => {
-            res.json(user);
-        })
-        .catch(error => {
-            res.status(500).json({ message: 'Error updating user', error });
-        });
+const createUser = async (req, res) => {
+  res.status(405).json({ message: "Create users through the registration endpoint" });
 };
 
-let deleteUser = (req, res) => {
-    const userId = parseInt(req.params.id);
-    prisma.user.delete({
-        where: { id: userId }
-    })
-        .then(user => {
-            res.json(user);
-        })
-        .catch(error => {
-            res.status(500).json({ message: 'Error deleting user', error });
-        });
+const updateUser = async (req, res) => {
+  const userId = Number(req.params.id);
+  const { role, companyId, isActive } = req.body;
+  const data = {};
+
+  if (role !== undefined) {
+    if (!roles.includes(role)) {
+      return res.status(400).json({ message: "Invalid role" });
+    }
+    data.role = role;
+  }
+
+  if (companyId !== undefined) {
+    if (companyId !== null && (!Number.isInteger(companyId) || companyId <= 0)) {
+      return res.status(400).json({ message: "companyId must be a positive integer or null" });
+    }
+    data.companyId = companyId;
+  }
+
+  if (isActive !== undefined) {
+    if (typeof isActive !== "boolean") {
+      return res.status(400).json({ message: "isActive must be true or false" });
+    }
+    data.isActive = isActive;
+  }
+
+  if (Object.keys(data).length === 0) {
+    return res.status(400).json({ message: "Provide a role, company assignment, or active status" });
+  }
+
+  try {
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data,
+      select: publicUserSelect,
+    });
+    res.json(user);
+  } catch (error) {
+    if (error.code === "P2025") {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(500).json({ message: "Error updating user" });
+  }
+};
+
+const deleteUser = async (req, res) => {
+  try {
+    await prisma.user.delete({ where: { id: Number(req.params.id) } });
+    res.status(204).send();
+  } catch (error) {
+    if (error.code === "P2025") {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(500).json({ message: "Error deleting user" });
+  }
 };
 
 export { getUsers, getUserById, createUser, updateUser, deleteUser };
