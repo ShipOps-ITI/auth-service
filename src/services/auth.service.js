@@ -2,6 +2,8 @@ import prisma from "../config/prisma.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
+const toPublicUser = ({ password, refreshToken, ...user }) => user;
+
 const register = async (data) => {
     const { email, password, name, role } = data;
 
@@ -27,7 +29,7 @@ const register = async (data) => {
                 role: role || "CUSTOMER", // Default role is CUSTOMER if not provided
             },
         });
-        return newUser;
+        return toPublicUser(newUser);
     } catch (error) {
         throw error;
     }
@@ -39,10 +41,16 @@ const login = async (data) => {
         const user = await prisma.user.findUnique({ where: { email } });
         if (!user) throw new Error("Invalid email or password");
 
+        if (!user.isActive) throw new Error("This account has been deactivated");
+
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) throw new Error("Invalid email or password");
 
-        const payload = { userId: user.id, role: user.role };
+        const payload = {
+            userId: user.id,
+            role: user.role,
+            companyId: user.companyId,
+        };
 
         // Generate tokens
         const accessToken = jwt.sign(payload, process.env.JWT_SECRET, {
@@ -59,7 +67,7 @@ const login = async (data) => {
             data: { refreshToken },
         });
 
-        return { user, accessToken, refreshToken };
+        return { user: toPublicUser(user), accessToken, refreshToken };
     } catch (error) {
         throw error;
     }
@@ -73,11 +81,15 @@ const refreshAccessToken = async (refreshToken) => {
             where: { id: decoded.userId },
         });
 
-        if (!user || user.refreshToken !== refreshToken) {
+        if (!user || !user.isActive || user.refreshToken !== refreshToken) {
             throw new Error("Invalid refresh token");
         }
 
-        const payload = { userId: user.id, role: user.role };
+        const payload = {
+            userId: user.id,
+            role: user.role,
+            companyId: user.companyId,
+        };
 
         // Generate new access token
         const newAccessToken = jwt.sign(payload, process.env.JWT_SECRET, {
