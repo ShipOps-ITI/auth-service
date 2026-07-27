@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
 const register = async (data) => {
-    const { email, password, name, role } = data;
+    const { email, password, name } = data;
 
     try {
         // Check if the user already exists
@@ -24,7 +24,7 @@ const register = async (data) => {
                 email,
                 password: hashedPassword,
                 name,
-                role: role || "CUSTOMER", // Default role is CUSTOMER if not provided
+                role: "CUSTOMER", // Default role is always CUSTOMER
             },
         });
         return newUser;
