@@ -1,47 +1,74 @@
 import prisma from "../config/prisma.js";
+import bcrypt from "bcrypt";
 
-const roles = ["ADMIN", "FLEET_MANAGER", "CUSTOMER", "CAPTAIN", "PORT_OPERATOR"];
+const VALID_ROLES = ['ADMIN', 'FLEET_MANAGER', 'CUSTOMER', 'CAPTAIN', 'PORT_OPERATOR'];
 
-const publicUserSelect = {
-  id: true,
-  name: true,
-  email: true,
-  role: true,
-  companyId: true,
-  isActive: true,
-  createdAt: true,
-  updatedAt: true,
+const safeUser = ({ password, refreshToken, ...rest }) => rest;
+
+let getUsers = (req, res) => {
+    prisma.user.findMany()
+        .then(users => {
+            res.json(users.map(safeUser));
+        })
+        .catch(error => {
+            res.status(500).json({ message: 'Error retrieving users', error });
+        });
 };
 
-const getUsers = async (req, res) => {
-  try {
-    const users = await prisma.user.findMany({
-      select: publicUserSelect,
-      orderBy: { createdAt: "desc" },
-    });
-
-    res.json(users);
-  } catch {
-    res.status(500).json({ message: "Error retrieving users" });
-  }
+let getUserById = (req, res) => {
+    const userId = parseInt(req.params.id);
+    prisma.user.findUnique({
+        where: { id: userId }
+    })
+        .then(user => {
+            if (user) {
+                res.json(safeUser(user));
+            } else {
+                res.status(404).json({ message: 'User not found' });
+            }
+        })
+        .catch(error => {
+            res.status(500).json({ message: 'Error retrieving user', error });
+        });
 };
 
-const getUserById = async (req, res) => {
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: Number(req.params.id) },
-      select: publicUserSelect,
-    });
+let createUser = async (req, res) => {
+    const { name, email, password, role } = req.body;
 
-    if (!user) return res.status(404).json({ message: "User not found" });
-    res.json(user);
-  } catch {
-    res.status(400).json({ message: "Invalid user ID" });
-  }
-};
+    // Validate required fields
+    if (!name || !email || !password) {
+        return res.status(400).json({ message: 'Missing required fields: name, email, password' });
+    }
 
-const createUser = async (req, res) => {
-  res.status(405).json({ message: "Create users through the registration endpoint" });
+    // Validate role if provided
+    if (role && !VALID_ROLES.includes(role)) {
+        return res.status(400).json({
+            message: `Invalid role. Valid roles: ${VALID_ROLES.join(', ')}`
+        });
+    }
+
+    try {
+        // Check for duplicate email
+        const existing = await prisma.user.findUnique({ where: { email } });
+        if (existing) {
+            return res.status(400).json({ message: 'Email already in use' });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const user = await prisma.user.create({
+            data: {
+                name,
+                email,
+                password: hashedPassword,
+                role: role || 'CUSTOMER',
+            }
+        });
+
+        res.status(201).json(safeUser(user));
+    } catch (error) {
+        res.status(500).json({ message: 'Error creating user', error });
+    }
 };
 
 const updateUser = async (req, res) => {
@@ -101,4 +128,37 @@ const deleteUser = async (req, res) => {
   }
 };
 
-export { getUsers, getUserById, createUser, updateUser, deleteUser };
+let updateUserRole = async (req, res) => {
+    const targetId = parseInt(req.params.id);
+    const { role } = req.body;
+
+    // Prevent self-role-change
+    if (req.user.userId === targetId) {
+        return res.status(403).json({ message: 'Cannot change your own role' });
+    }
+
+    // Validate role
+    if (!role || !VALID_ROLES.includes(role)) {
+        return res.status(400).json({
+            message: `Invalid role. Valid roles: ${VALID_ROLES.join(', ')}`
+        });
+    }
+
+    try {
+        const existing = await prisma.user.findUnique({ where: { id: targetId } });
+        if (!existing) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const updated = await prisma.user.update({
+            where: { id: targetId },
+            data: { role }
+        });
+
+        res.json(safeUser(updated));
+    } catch (error) {
+        res.status(500).json({ message: 'Error updating user role', error });
+    }
+};
+
+export { getUsers, getUserById, createUser, updateUser, deleteUser, updateUserRole, safeUser, VALID_ROLES };
