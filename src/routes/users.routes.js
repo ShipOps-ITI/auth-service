@@ -1,5 +1,5 @@
 import express from 'express';
-import { getUsers, getUserById, createUser, updateUser, deleteUser } from '../controllers/users.controller.js';
+import { getUsers, getUserById, createUser, updateUser, deleteUser, updateUserRole } from '../controllers/users.controller.js';
 import authenticate from '../middleware/authenticate.js';
 import authorize from '../middleware/authorize.js';
 
@@ -10,5 +10,6 @@ userRoutes.get('/api/users/:id', authenticate, authorize('ADMIN'), getUserById);
 userRoutes.post('/api/users', authenticate, authorize('ADMIN'), createUser);
 userRoutes.put('/api/users/:id', authenticate, authorize('ADMIN'), updateUser);
 userRoutes.delete('/api/users/:id', authenticate, authorize('ADMIN'), deleteUser);
+userRoutes.patch('/api/users/:id/role', authenticate, authorize('ADMIN'), updateUserRole);
 
 export default userRoutes;
