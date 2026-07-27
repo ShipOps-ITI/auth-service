@@ -72,12 +72,12 @@ let createUser = async (req, res) => {
 };
 
 const updateUser = async (req, res) => {
-  const userId = Number(req.params.id);
+  const userId = parseInt(req.params.id);
   const { role, companyId, isActive } = req.body;
   const data = {};
 
   if (role !== undefined) {
-    if (!roles.includes(role)) {
+    if (!VALID_ROLES.includes(role)) {
       return res.status(400).json({ message: "Invalid role" });
     }
     data.role = role;
@@ -105,9 +105,8 @@ const updateUser = async (req, res) => {
     const user = await prisma.user.update({
       where: { id: userId },
       data,
-      select: publicUserSelect,
     });
-    res.json(user);
+    res.json(safeUser(user));
   } catch (error) {
     if (error.code === "P2025") {
       return res.status(404).json({ message: "User not found" });
