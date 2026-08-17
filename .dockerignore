@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+.env.*
+.git
+npm-debug.log
+Dockerfile
+k8s-manifest
+**/__pycache__
+.DS_Store
