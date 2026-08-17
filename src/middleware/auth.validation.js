@@ -1,9 +1,7 @@
-const ROLES = [
+const REGISTRATION_ROLES = [
   "ADMIN",
   "FLEET_MANAGER",
   "CUSTOMER",
-  "CAPTAIN",
-  "PORT_OPERATOR",
 ];
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -30,8 +28,8 @@ const registerValidation = (req, res, next) => {
     errors.push({ field: "password", message: "Password must be between 8 and 128 characters" });
   }
 
-  if (role !== undefined && (!ROLES.includes(role))) {
-    errors.push({ field: "role", message: `Role must be one of: ${ROLES.join(", ")}` });
+  if (role !== undefined && !REGISTRATION_ROLES.includes(role)) {
+    errors.push({ field: "role", message: `Role must be one of: ${REGISTRATION_ROLES.join(", ")}` });
   }
 
   if (errors.length) {
