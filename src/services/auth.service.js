@@ -5,7 +5,7 @@ import jwt from "jsonwebtoken";
 const toPublicUser = ({ password, refreshToken, ...user }) => user;
 
 const register = async (data) => {
-    const { email, password, name } = data;
+    const { email, password, name, role = "CUSTOMER" } = data;
 
     try {
         // Check if the user already exists
@@ -26,7 +26,7 @@ const register = async (data) => {
                 email,
                 password: hashedPassword,
                 name,
-                role: "CUSTOMER", // Default role is always CUSTOMER
+                role,
             },
         });
         return toPublicUser(newUser);
