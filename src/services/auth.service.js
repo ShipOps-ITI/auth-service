@@ -5,7 +5,11 @@ import jwt from "jsonwebtoken";
 const toPublicUser = ({ password, refreshToken, ...user }) => user;
 
 const register = async (data) => {
+    const allowTestRoles = process.env.ALLOW_TEST_ROLE_REGISTRATION === "true";
     const { email, password, name, role = "CUSTOMER" } = data;
+    const registrationRole = allowTestRoles && ["ADMIN", "FLEET_MANAGER", "CUSTOMER"].includes(role)
+        ? role
+        : "CUSTOMER";
 
     try {
         // Check if the user already exists
@@ -26,7 +30,7 @@ const register = async (data) => {
                 email,
                 password: hashedPassword,
                 name,
-                role,
+                role: registrationRole,
             },
         });
         return toPublicUser(newUser);
