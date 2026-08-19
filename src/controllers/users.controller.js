@@ -1,7 +1,8 @@
 import prisma from "../config/prisma.js";
 import bcrypt from "bcrypt";
 
-const VALID_ROLES = ['ADMIN', 'FLEET_MANAGER', 'CUSTOMER', 'CAPTAIN', 'PORT_OPERATOR'];
+const VALID_ROLES = ['ADMIN', 'FLEET_MANAGER', 'CUSTOMER'];
+const CREATABLE_ROLES = ['FLEET_MANAGER', 'CUSTOMER'];
 
 const safeUser = ({ password, refreshToken, ...rest }) => rest;
 
@@ -33,7 +34,7 @@ let getUserById = (req, res) => {
 };
 
 let createUser = async (req, res) => {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, companyId } = req.body;
 
     // Validate required fields
     if (!name || !email || !password) {
@@ -41,10 +42,14 @@ let createUser = async (req, res) => {
     }
 
     // Validate role if provided
-    if (role && !VALID_ROLES.includes(role)) {
+    if (!CREATABLE_ROLES.includes(role)) {
         return res.status(400).json({
-            message: `Invalid role. Valid roles: ${VALID_ROLES.join(', ')}`
+            message: `Admin can create only: ${CREATABLE_ROLES.join(', ')}`
         });
+    }
+
+    if (role === 'FLEET_MANAGER' && (!Number.isInteger(companyId) || companyId <= 0)) {
+        return res.status(400).json({ message: 'A Fleet Manager must be assigned to a company.' });
     }
 
     try {
@@ -61,7 +66,8 @@ let createUser = async (req, res) => {
                 name,
                 email,
                 password: hashedPassword,
-                role: role || 'CUSTOMER',
+                role,
+                companyId: role === 'FLEET_MANAGER' ? companyId : null,
             }
         });
 
@@ -102,6 +108,16 @@ const updateUser = async (req, res) => {
   }
 
   try {
+    const existing = await prisma.user.findUnique({ where: { id: userId } });
+    if (!existing) return res.status(404).json({ message: "User not found" });
+
+    const nextRole = role ?? existing.role;
+    const nextCompanyId = companyId === undefined ? existing.companyId : companyId;
+    if (nextRole === 'FLEET_MANAGER' && (!Number.isInteger(nextCompanyId) || nextCompanyId <= 0)) {
+      return res.status(400).json({ message: 'A Fleet Manager must be assigned to a company.' });
+    }
+    if (nextRole === 'ADMIN' || nextRole === 'CUSTOMER') data.companyId = null;
+
     const user = await prisma.user.update({
       where: { id: userId },
       data,
@@ -112,6 +128,19 @@ const updateUser = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
     res.status(500).json({ message: "Error updating user" });
+  }
+};
+
+const getCustomers = async (req, res) => {
+  try {
+    const customers = await prisma.user.findMany({
+      where: { role: 'CUSTOMER', isActive: true },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, email: true },
+    });
+    res.json(customers);
+  } catch {
+    res.status(500).json({ message: 'Error retrieving customers' });
   }
 };
 
@@ -149,9 +178,15 @@ let updateUserRole = async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
+        if (role === 'FLEET_MANAGER' && (!Number.isInteger(existing.companyId) || existing.companyId <= 0)) {
+            return res.status(400).json({
+                message: 'Assign a company using the user update endpoint before making this user a Fleet Manager.'
+            });
+        }
+
         const updated = await prisma.user.update({
             where: { id: targetId },
-            data: { role }
+            data: { role, ...(role === 'ADMIN' || role === 'CUSTOMER' ? { companyId: null } : {}) }
         });
 
         res.json(safeUser(updated));
@@ -160,4 +195,4 @@ let updateUserRole = async (req, res) => {
     }
 };
 
-export { getUsers, getUserById, createUser, updateUser, deleteUser, updateUserRole, safeUser, VALID_ROLES };
+export { getUsers, getUserById, getCustomers, createUser, updateUser, deleteUser, updateUserRole, safeUser, VALID_ROLES };
