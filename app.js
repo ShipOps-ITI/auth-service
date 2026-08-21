@@ -11,13 +11,14 @@ dotenv.config();
 const app = express();
 
 app.use(cors({
-    origin: "http://localhost:5173", // Frontend URL
-    credentials: true, // Allow cookies
+    origin: process.env.FRONTEND_ORIGIN || '*', // Allow runtime-configured frontend origin (set in K8s)
+    credentials: true,
 }));
 app.use(express.json());
 app.use(cookieParser()); // Parse cookies from requests
 
-app.use(userRoutes);
-app.use(authRoutes);
+// Mount user routes and auth routes under /auth so Ingress path-based routing works without rewrites
+app.use('/auth', userRoutes);
+app.use('/auth', authRoutes);
 
 export default app;
