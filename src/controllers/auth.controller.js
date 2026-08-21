@@ -60,4 +60,24 @@ const logout = async (req, res) => {
     }
 };
 
-export { register, login, logout, refresh };
+const completeCompanyOnboarding = async (req, res) => {
+    try {
+        const { user, accessToken, refreshToken } = await authService.completeCompanyOnboarding(
+            req.user.userId,
+            req.body.companyId,
+        );
+
+        res.cookie("refreshToken", refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+        });
+
+        res.status(200).json({ message: "Company onboarding completed", user, accessToken });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+};
+
+export { register, login, logout, refresh, completeCompanyOnboarding };

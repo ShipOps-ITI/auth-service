@@ -1,5 +1,6 @@
 const REGISTRATION_ROLES = [
   "ADMIN",
+  "COMPANY_ADMIN",
   "FLEET_MANAGER",
   "CUSTOMER",
 ];
