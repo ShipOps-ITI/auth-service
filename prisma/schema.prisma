@@ -15,10 +15,23 @@ datasource db {
 
 enum Role {
   ADMIN
+  COMPANY_ADMIN
   FLEET_MANAGER
   CUSTOMER
   CAPTAIN
   PORT_OPERATOR
+}
+
+enum MembershipRole {
+  COMPANY_ADMIN
+  FLEET_MANAGER
+  CUSTOMER
+}
+
+enum MembershipStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
 }
 
 model User {
@@ -36,5 +49,26 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Kept while Core and Shipment Services transition to company memberships.
+  // It represents the user's primary operational company.
   companyId Int?
+  memberships CompanyMembership[]
+}
+
+model CompanyMembership {
+  id            Int              @id @default(autoincrement())
+  userId        Int
+  companyId     Int
+  role          MembershipRole
+  status        MembershipStatus @default(ACTIVE)
+  invitedByUserId Int?
+  joinedAt      DateTime         @default(now())
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, companyId])
+  @@index([companyId, role])
+  @@map("company_memberships")
 }
