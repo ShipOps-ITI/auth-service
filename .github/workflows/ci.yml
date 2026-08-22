@@ -61,7 +61,6 @@ jobs:
             p/nodejs
             p/secrets
             p/jwt
-            p/express
 
   build-and-scan:
     name: Build and Scan Image
