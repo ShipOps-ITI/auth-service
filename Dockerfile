@@ -16,10 +16,11 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
-COPY --from=builder /app/src ./src
-COPY --from=builder /app/src/generated ./src/generated
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/app.js ./app.js
 COPY --from=builder /app/server.js ./server.js
+COPY --from=builder /app/src ./src
 EXPOSE 5001
 CMD ["node", "server.js"]
