@@ -1,4 +1,4 @@
-name: Build & Push Auth Image to ECR
+name: CI Pipeline
 
 on:
   push:
