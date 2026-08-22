@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 
 import userRoutes from "./src/routes/users.routes.js";
 import authRoutes from "./src/routes/auth.routes.js";
+import subscriptionRoutes from "./src/routes/subscription.routes.js";
 
 dotenv.config();
 
@@ -19,5 +20,6 @@ app.use(cookieParser()); // Parse cookies from requests
 
 app.use(userRoutes);
 app.use(authRoutes);
+app.use(subscriptionRoutes);
 
 export default app;

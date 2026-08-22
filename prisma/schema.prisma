@@ -21,6 +21,18 @@ enum Role {
   PORT_OPERATOR
 }
 
+enum PlanTier {
+  FREE
+  PREMIUM
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PENDING
+  PAST_DUE
+  CANCELED
+}
+
 model User {
   id        Int      @id @default(autoincrement())
 
@@ -37,4 +49,11 @@ model User {
   updatedAt DateTime @updatedAt
 
   companyId Int?
+
+  planTier            PlanTier           @default(FREE)
+  subscriptionStatus  SubscriptionStatus @default(ACTIVE)
+  paymobSubscriptionId String?           @unique
+  paymobIntentionId    String?           @unique
+  paymobPlanId         Int?
+  subscriptionEndsAt   DateTime?
 }
