@@ -1,6 +1,6 @@
 const baseUrl = () => (process.env.PAYMOB_BASE_URL || "https://accept.paymob.com").replace(/\/$/, "");
 const premiumAmount = () => Number(process.env.PAYMOB_PREMIUM_AMOUNT_CENTS || 10000);
-const premiumCurrency = () => process.env.PAYMOB_CURRENCY || "USD";
+const premiumCurrency = () => process.env.PAYMOB_CURRENCY || "EGP";
 const planName = "ShipOps Premium Annual";
 const paymentSuccessUrl = () => process.env.PAYMOB_REDIRECTION_URL || `${(process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "")}/payment/success`;
 
