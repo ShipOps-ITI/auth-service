@@ -19,7 +19,7 @@ app.use(express.json());
 app.use(cookieParser()); // Parse cookies from requests
 
 app.use(userRoutes);
-app.use(authRoutes);
+app.use("/auth", authRoutes);
 app.use(subscriptionRoutes);
 
 export default app;

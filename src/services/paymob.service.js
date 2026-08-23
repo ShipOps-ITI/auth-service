@@ -2,7 +2,7 @@ const baseUrl = () => (process.env.PAYMOB_BASE_URL || "https://accept.paymob.com
 const premiumAmount = () => Number(process.env.PAYMOB_PREMIUM_AMOUNT_CENTS || 10000);
 const premiumCurrency = () => process.env.PAYMOB_CURRENCY || "USD";
 const planName = "ShipOps Premium Monthly";
-const paymentSuccessUrl = () => process.env.PAYMOB_REDIRECTION_URL || `${(process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "")}/payment/success`;
+const paymentSuccessUrl = () => process.env.PAYMOB_REDIRECTION_URL || `${(process.env.FRONTEND_ORIGIN || "http://localhost:5173").replace(/\/$/, "")}/payment/success`;
 
 async function paymobRequest(path, { method = "GET", headers = {}, body } = {}) {
   const response = await fetch(`${baseUrl()}${path}`, {
