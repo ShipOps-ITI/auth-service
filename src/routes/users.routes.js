@@ -5,12 +5,12 @@ import authorize from '../middleware/authorize.js';
 
 const userRoutes = express.Router();
 
-userRoutes.get('/api/users', authenticate, authorize('ADMIN', 'COMPANY_ADMIN'), getUsers);
-userRoutes.get('/api/users/customers', authenticate, authorize('ADMIN', 'COMPANY_ADMIN', 'FLEET_MANAGER'), getCustomers);
-userRoutes.get('/api/users/:id', authenticate, authorize('ADMIN', 'COMPANY_ADMIN'), getUserById);
-userRoutes.post('/api/users', authenticate, authorize('ADMIN', 'COMPANY_ADMIN'), createUser);
-userRoutes.put('/api/users/:id', authenticate, authorize('ADMIN', 'COMPANY_ADMIN'), updateUser);
-userRoutes.delete('/api/users/:id', authenticate, authorize('ADMIN', 'COMPANY_ADMIN'), deleteUser);
-userRoutes.patch('/api/users/:id/role', authenticate, authorize('ADMIN', 'COMPANY_ADMIN'), updateUserRole);
+userRoutes.get('/users', authenticate, authorize('ADMIN', 'COMPANY_ADMIN'), getUsers);
+userRoutes.get('/users/customers', authenticate, authorize('ADMIN', 'COMPANY_ADMIN', 'FLEET_MANAGER'), getCustomers);
+userRoutes.get('/users/:id', authenticate, authorize('ADMIN', 'COMPANY_ADMIN'), getUserById);
+userRoutes.post('/users', authenticate, authorize('ADMIN', 'COMPANY_ADMIN'), createUser);
+userRoutes.put('/users/:id', authenticate, authorize('ADMIN', 'COMPANY_ADMIN'), updateUser);
+userRoutes.delete('/users/:id', authenticate, authorize('ADMIN', 'COMPANY_ADMIN'), deleteUser);
+userRoutes.patch('/users/:id/role', authenticate, authorize('ADMIN', 'COMPANY_ADMIN'), updateUserRole);
 
 export default userRoutes;

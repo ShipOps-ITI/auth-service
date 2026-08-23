@@ -4,10 +4,10 @@ import { cancelCurrentSubscription, getSubscription, paymobWebhook, startPremium
 
 const subscriptionRoutes = express.Router();
 
-subscriptionRoutes.post("/api/paymob/webhook", paymobWebhook);
-subscriptionRoutes.get("/api/subscription", authenticate, getSubscription);
-subscriptionRoutes.post("/api/subscription/trial", authenticate, startTrial);
-subscriptionRoutes.post("/api/subscription/premium/checkout", authenticate, startPremiumCheckout);
-subscriptionRoutes.post("/api/subscription/cancel", authenticate, cancelCurrentSubscription);
+subscriptionRoutes.post("/paymob/webhook", paymobWebhook);
+subscriptionRoutes.get("/subscription", authenticate, getSubscription);
+subscriptionRoutes.post("/subscription/trial", authenticate, startTrial);
+subscriptionRoutes.post("/subscription/premium/checkout", authenticate, startPremiumCheckout);
+subscriptionRoutes.post("/subscription/cancel", authenticate, cancelCurrentSubscription);
 
 export default subscriptionRoutes;

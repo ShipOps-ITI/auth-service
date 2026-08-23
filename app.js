@@ -18,9 +18,9 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser()); // Parse cookies from requests
 
-app.use(userRoutes);
 app.use("/auth", authRoutes);
-app.use(subscriptionRoutes);
+app.use("/auth", userRoutes);
+app.use("/auth", subscriptionRoutes);
 
 export default app;
 
