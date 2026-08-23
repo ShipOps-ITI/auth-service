@@ -36,11 +36,13 @@ enum MembershipStatus {
 
 enum PlanTier {
   FREE
+  TRIAL
   PREMIUM
 }
 
 enum SubscriptionStatus {
   ACTIVE
+  TRIALING
   PENDING
   PAST_DUE
   CANCELED
@@ -70,6 +72,7 @@ model User {
   paymobIntentionId    String?           @unique
   paymobPlanId         Int?
   subscriptionEndsAt   DateTime?
+  trialStartedAt       DateTime?
   memberships CompanyMembership[]
 }
 
