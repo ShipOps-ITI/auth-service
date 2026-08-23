@@ -50,6 +50,9 @@ const register = async (data) => {
                 password: hashedPassword,
                 name,
                 role: registrationRole,
+                ...(registrationRole === "COMPANY_ADMIN"
+                    ? { planTier: "FREE", subscriptionStatus: "PENDING" }
+                    : {}),
             },
         });
         return toPublicUser(newUser);

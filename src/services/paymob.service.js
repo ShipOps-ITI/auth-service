@@ -1,8 +1,8 @@
 const baseUrl = () => (process.env.PAYMOB_BASE_URL || "https://accept.paymob.com").replace(/\/$/, "");
 const premiumAmount = () => Number(process.env.PAYMOB_PREMIUM_AMOUNT_CENTS || 10000);
 const premiumCurrency = () => process.env.PAYMOB_CURRENCY || "USD";
-const planName = "ShipOps Premium Monthly";
-const paymentSuccessUrl = () => process.env.PAYMOB_REDIRECTION_URL || `${(process.env.FRONTEND_ORIGIN || "http://localhost:5173").replace(/\/$/, "")}/payment/success`;
+const planName = "ShipOps Premium Annual";
+const paymentSuccessUrl = () => process.env.PAYMOB_REDIRECTION_URL || `${(process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "")}/payment/success`;
 
 async function paymobRequest(path, { method = "GET", headers = {}, body } = {}) {
   const response = await fetch(`${baseUrl()}${path}`, {
@@ -25,22 +25,23 @@ async function getAuthToken() {
 }
 
 async function ensurePremiumPlan() {
-  if (process.env.PAYMOB_PREMIUM_PLAN_ID) return Number(process.env.PAYMOB_PREMIUM_PLAN_ID);
+  const planId = configuredPlanId();
+  if (planId) return planId;
   if (!process.env.PAYMOB_MOTO_INTEGRATION_ID || !process.env.PAYMOB_WEBHOOK_URL) {
-    throw new Error("Set PAYMOB_PREMIUM_PLAN_ID, or configure PAYMOB_MOTO_INTEGRATION_ID and PAYMOB_WEBHOOK_URL");
+    throw new Error("Set PAYMOB_YEARLY_PLAN_ID, or configure PAYMOB_MOTO_INTEGRATION_ID and PAYMOB_WEBHOOK_URL");
   }
   const token = await getAuthToken();
   const headers = { Authorization: `Bearer ${token}` };
   const plansResponse = await paymobRequest("/api/acceptance/subscription-plans", { headers });
   const plans = Array.isArray(plansResponse) ? plansResponse : (plansResponse.results || plansResponse.data || []);
-  const existing = plans.find((plan) => plan.name === planName && plan.frequency === 30 && plan.amount_cents === premiumAmount());
+  const existing = plans.find((plan) => plan.name === planName && plan.frequency === 365 && plan.amount_cents === premiumAmount());
   if (existing) return existing.id;
 
   const plan = await paymobRequest("/api/acceptance/subscription-plans", {
     method: "POST",
     headers,
     body: {
-      frequency: 30,
+      frequency: 365,
       name: planName,
       reminder_days: 3,
       retrial_days: 3,
@@ -56,7 +57,7 @@ async function ensurePremiumPlan() {
   return plan.id;
 }
 
-async function createPremiumCheckout({ user, billingData, planId }) {
+async function createPremiumCheckout({ user, billingData }) {
   if (!process.env.PAYMOB_SECRET_KEY || !process.env.PAYMOB_3DS_INTEGRATION_ID || !process.env.PAYMOB_PUBLIC_KEY) {
     throw new Error("Paymob secret key, public key, and 3DS integration ID must be configured");
   }
@@ -69,8 +70,7 @@ async function createPremiumCheckout({ user, billingData, planId }) {
       amount,
       currency: premiumCurrency(),
       payment_methods: [Number(process.env.PAYMOB_3DS_INTEGRATION_ID)],
-      subscription_plan_id: planId,
-      items: [{ name: planName, amount, description: "Monthly ShipOps Premium subscription", quantity: 1 }],
+      items: [{ name: planName, amount, description: "Annual ShipOps workspace subscription", quantity: 1 }],
       billing_data: billingData,
       special_reference: specialReference,
       notification_url: process.env.PAYMOB_WEBHOOK_URL,

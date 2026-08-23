@@ -1,10 +1,11 @@
 import prisma from "../config/prisma.js";
-import { cancelSubscription, createPremiumCheckout, ensurePremiumPlan } from "../services/paymob.service.js";
+import { cancelSubscription, createPremiumCheckout } from "../services/paymob.service.js";
 
 const publicSubscription = (user) => ({
   plan: user.planTier,
   status: user.subscriptionStatus,
   endsAt: user.subscriptionEndsAt,
+  trialAvailable: !user.trialStartedAt,
 });
 
 const getSubscription = async (req, res) => {
@@ -12,28 +13,41 @@ const getSubscription = async (req, res) => {
   res.json(publicSubscription(user));
 };
 
-const chooseFreePlan = async (req, res) => {
+const startTrial = async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
-  if (user.paymobSubscriptionId && user.subscriptionStatus === "ACTIVE") {
-    return res.status(409).json({ error: "Cancel the Premium subscription before switching to Free." });
-  }
+  if (!user) return res.status(404).json({ error: "User not found" });
+  if (user.role !== "COMPANY_ADMIN") return res.status(403).json({ error: "Only Company Admin accounts can start a workspace trial." });
+  if (!user.companyId) return res.status(409).json({ error: "Create your company workspace before starting a trial." });
+  if (user.planTier === "PREMIUM" && user.subscriptionStatus === "ACTIVE") return res.status(409).json({ error: "This account already has an active annual plan." });
+  if (user.trialStartedAt) return res.status(409).json({ error: "The 30-day trial has already been used for this account." });
+
+  const now = new Date();
+  const trialEndsAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
   const updated = await prisma.user.update({
     where: { id: user.id },
-    data: { planTier: "FREE", subscriptionStatus: "ACTIVE", subscriptionEndsAt: null, paymobPlanId: null, paymobIntentionId: null },
+    data: {
+      planTier: "TRIAL",
+      subscriptionStatus: "TRIALING",
+      trialStartedAt: now,
+      subscriptionEndsAt: trialEndsAt,
+      paymobPlanId: null,
+      paymobIntentionId: null,
+    },
   });
-  res.json({ message: "Free plan activated", subscription: publicSubscription(updated) });
+  res.json({ message: "30-day trial activated", subscription: publicSubscription(updated) });
 };
 
 const startPremiumCheckout = async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    if (!user || user.role !== "COMPANY_ADMIN") return res.status(403).json({ error: "Only Company Admin accounts can purchase a workspace plan." });
+    if (!user.companyId) return res.status(409).json({ error: "Create your company workspace before purchasing a plan." });
     const { first_name, last_name, email, phone_number, apartment = "N/A", building = "N/A", street = "N/A", floor = "N/A", city = "N/A", state = "N/A", country = "N/A" } = req.body;
     if (![first_name, last_name, email, phone_number].every(Boolean)) {
       return res.status(400).json({ error: "first_name, last_name, email, and phone_number are required" });
     }
-    const planId = await ensurePremiumPlan();
-    const checkout = await createPremiumCheckout({ user, planId, billingData: { first_name, last_name, email, phone_number, apartment, building, street, floor, city, state, country } });
-    await prisma.user.update({ where: { id: user.id }, data: { planTier: "PREMIUM", subscriptionStatus: "PENDING", paymobPlanId: planId, paymobIntentionId: checkout.intentionId } });
+    const checkout = await createPremiumCheckout({ user, billingData: { first_name, last_name, email, phone_number, apartment, building, street, floor, city, state, country } });
+    await prisma.user.update({ where: { id: user.id }, data: { planTier: "PREMIUM", subscriptionStatus: "PENDING", paymobPlanId: null, paymobIntentionId: checkout.intentionId } });
     res.status(201).json({ checkoutUrl: checkout.checkoutUrl });
   } catch (error) {
     res.status(502).json({ error: error.message });
@@ -63,11 +77,12 @@ const paymobWebhook = async (req, res) => {
   const failed = payload.success === false || ["failed", "canceled", "cancelled"].includes(payload.state);
   if (success) {
     const subscriptionId = payload.subscription_id || payload.subscription?.id;
-    await prisma.user.update({ where: { id: userId }, data: { planTier: "PREMIUM", subscriptionStatus: "ACTIVE", ...(subscriptionId ? { paymobSubscriptionId: String(subscriptionId) } : {}), ...(payload.next_billing ? { subscriptionEndsAt: new Date(payload.next_billing) } : {}) } });
+    const annualEndsAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+    await prisma.user.update({ where: { id: userId }, data: { planTier: "PREMIUM", subscriptionStatus: "ACTIVE", ...(subscriptionId ? { paymobSubscriptionId: String(subscriptionId) } : {}), subscriptionEndsAt: payload.next_billing ? new Date(payload.next_billing) : annualEndsAt } });
   } else if (failed) {
     await prisma.user.update({ where: { id: userId }, data: { subscriptionStatus: payload.state === "failed" ? "PAST_DUE" : "CANCELED" } });
   }
   res.sendStatus(200);
 };
 
-export { getSubscription, chooseFreePlan, startPremiumCheckout, cancelCurrentSubscription, paymobWebhook };
+export { getSubscription, startTrial, startPremiumCheckout, cancelCurrentSubscription, paymobWebhook };
