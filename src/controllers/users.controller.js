@@ -2,7 +2,7 @@ import prisma from "../config/prisma.js";
 import bcrypt from "bcrypt";
 
 const VALID_ROLES = ["ADMIN", "COMPANY_ADMIN", "FLEET_MANAGER", "CUSTOMER"];
-const COMPANY_ROLES = ["COMPANY_ADMIN", "FLEET_MANAGER"];
+const COMPANY_ROLES = ["COMPANY_ADMIN", "FLEET_MANAGER", "CUSTOMER"];
 const MEMBERSHIP_ROLE = {
   COMPANY_ADMIN: "COMPANY_ADMIN",
   FLEET_MANAGER: "FLEET_MANAGER",
@@ -64,7 +64,7 @@ const createUser = async (req, res) => {
 
   const companyId = isSuperAdmin(req) ? Number(requestedCompanyId) || null : Number(req.user.companyId);
   if (COMPANY_ROLES.includes(role) && !companyIdIsValid(companyId)) {
-    return res.status(400).json({ message: "A Company Admin or Fleet Manager must be assigned to a company." });
+    return res.status(400).json({ message: "A Company Admin, Fleet Manager, or Customer must be assigned to a company." });
   }
 
   try {
@@ -106,7 +106,7 @@ const updateUser = async (req, res) => {
       ? (requestedCompanyId === undefined ? existing.companyId : requestedCompanyId)
       : Number(req.user.companyId);
     if (COMPANY_ROLES.includes(nextRole) && !companyIdIsValid(nextCompanyId)) {
-      return res.status(400).json({ message: "A Company Admin or Fleet Manager must be assigned to a company." });
+      return res.status(400).json({ message: "A Company Admin, Fleet Manager, or Customer must be assigned to a company." });
     }
 
     const data = {
@@ -145,6 +145,9 @@ const deleteUser = async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: Number(req.params.id) } });
     if (!user) return res.status(404).json({ message: "User not found" });
+    if (user.id === Number(req.user.userId)) {
+      return res.status(400).json({ message: "You cannot delete your own account." });
+    }
     if (!canManageUser(req, user)) return res.status(403).json({ message: "You cannot manage users outside your company." });
     await prisma.user.delete({ where: { id: user.id } });
     res.status(204).send();

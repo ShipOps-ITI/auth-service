@@ -1,5 +1,5 @@
 import prisma from "../config/prisma.js";
-import { cancelSubscription, createPremiumCheckout } from "../services/paymob.service.js";
+import { cancelSubscription, createPremiumCheckout, getTransaction } from "../services/paymob.service.js";
 
 const publicSubscription = (user) => ({
   plan: user.planTier,
@@ -54,6 +54,54 @@ const startPremiumCheckout = async (req, res) => {
   }
 };
 
+const transactionReference = (transaction) => transaction.merchant_order_id
+  || transaction.special_reference
+  || transaction.order?.merchant_order_id
+  || transaction.order?.special_reference
+  || transaction.intention?.special_reference
+  || transaction.payment_key_claims?.extra?.special_reference;
+
+const transactionIntentionId = (transaction) => transaction.intention_id
+  || transaction.intention?.id
+  || transaction.payment_key_claims?.extra?.intention_id;
+
+const confirmPremiumPayment = async (req, res) => {
+  try {
+    const transactionId = String(req.body.transactionId || "").trim();
+    if (!/^\d+$/.test(transactionId)) return res.status(400).json({ error: "A valid Paymob transaction ID is required." });
+
+    const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    if (!user || user.role !== "COMPANY_ADMIN") return res.status(403).json({ error: "Only Company Admin accounts can confirm a workspace payment." });
+
+    const transaction = await getTransaction(transactionId);
+    const reference = String(transactionReference(transaction) || "");
+    const intentionId = String(transactionIntentionId(transaction) || "");
+    const belongsToUser = reference.startsWith(`shipops-subscription-${user.id}-`)
+      || (user.paymobIntentionId && intentionId === String(user.paymobIntentionId));
+    if (!belongsToUser) return res.status(403).json({ error: "This payment does not belong to your ShipOps account." });
+
+    const expectedAmount = Number(process.env.PAYMOB_PREMIUM_AMOUNT_CENTS || 10000);
+    const expectedCurrency = (process.env.PAYMOB_CURRENCY || "EGP").toUpperCase();
+    if (Number(transaction.amount_cents) !== expectedAmount || String(transaction.currency || "").toUpperCase() !== expectedCurrency) {
+      return res.status(409).json({ error: "The payment amount or currency does not match the ShipOps annual plan." });
+    }
+
+    if (transaction.pending === true) return res.status(202).json({ pending: true, subscription: publicSubscription(user) });
+    if (transaction.success !== true || transaction.is_refunded === true || transaction.is_voided === true) {
+      return res.status(409).json({ error: "Paymob has not confirmed this payment as successful." });
+    }
+
+    const annualEndsAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: { planTier: "PREMIUM", subscriptionStatus: "ACTIVE", subscriptionEndsAt: annualEndsAt },
+    });
+    return res.json({ message: "Annual subscription activated", subscription: publicSubscription(updated) });
+  } catch (error) {
+    return res.status(502).json({ error: error.message || "Unable to verify the Paymob transaction." });
+  }
+};
+
 const cancelCurrentSubscription = async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
@@ -85,4 +133,4 @@ const paymobWebhook = async (req, res) => {
   res.sendStatus(200);
 };
 
-export { getSubscription, startTrial, startPremiumCheckout, cancelCurrentSubscription, paymobWebhook };
+export { getSubscription, startTrial, startPremiumCheckout, confirmPremiumPayment, cancelCurrentSubscription, paymobWebhook };

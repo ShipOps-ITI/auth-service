@@ -24,6 +24,11 @@ async function getAuthToken() {
   return data.token;
 }
 
+async function getTransaction(transactionId) {
+  const token = await getAuthToken();
+  return paymobRequest(`/api/acceptance/transactions/${encodeURIComponent(transactionId)}?token=${encodeURIComponent(token)}`);
+}
+
 async function ensurePremiumPlan() {
   const planId = configuredPlanId();
   if (planId) return planId;
@@ -91,4 +96,4 @@ async function cancelSubscription(subscriptionId) {
   });
 }
 
-export { createPremiumCheckout, ensurePremiumPlan, cancelSubscription };
+export { createPremiumCheckout, ensurePremiumPlan, cancelSubscription, getTransaction };
